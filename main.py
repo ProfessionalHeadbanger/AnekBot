@@ -4,6 +4,7 @@ import FreeAI
 import telebot
 from telebot import types
 import time
+import google_speech
 
 token = os.environ['BOT_TOKEN']
 prompt1 = "Напиши любой анекдот "
@@ -16,7 +17,6 @@ keyboard_main = types.ReplyKeyboardMarkup(True, True)
 keyboard_main.add('Рандомный анек', 'Своя затравка', 'Помощь')
 keyboard_voice = types.ReplyKeyboardMarkup(True, True)
 keyboard_voice.add('Да', 'Нет')
-
 
 
 @bot.message_handler(commands=['start'])
@@ -46,16 +46,10 @@ def com_random(message):
   response = FreeAI.generate(prompt1,
                              temperature=temperature,
                              max_tokens=max_tokens)
-  bot.send_message(message.chat.id, 'Озвучить анек?', reply_markup=keyboard_voice)
-  bot.send_message(message.chat.id, response, reply_markup=keyboard_main)
-  os.remove("conversation_memory.json")
-
-def choice()
-
-def write_voice()
-
-def write_text()
-
+  msg = bot.send_message(message.chat.id,
+                         'Озвучить анек?',
+                         reply_markup=keyboard_voice)
+  bot.register_next_step_handler(msg, choice, response)
 
 
 @bot.message_handler(commands=['topic'])
@@ -71,8 +65,35 @@ def com_gen(message):
   response = FreeAI.generate(pr,
                              temperature=temperature,
                              max_tokens=max_tokens)
+  msg = bot.send_message(message.chat.id,
+                         'Озвучить анек?',
+                         reply_markup=keyboard_voice)
+  bot.register_next_step_handler(msg, choice, response)
+
+
+def choice(message, response):
+  if message.text == "Да":
+    write_voice(message, response)
+  else:
+    write_text(message, response)
+
+
+def write_voice(message, response):
+  lang = "ru"
+  speech = google_speech.Speech(response, lang)
+  speech.save('anek.mp3')
+  anek_file = open('anek.mp3', 'rb')
+  bot.send_voice(message.chat.id, anek_file, reply_markup=keyboard_main)
+  if os.path.exists("anek.mp3"):
+    os.remove('anek.mp3')
+  if os.path.exists("conversation_memory.json"):
+    os.remove("conversation_memory.json")
+
+
+def write_text(message, response):
   bot.send_message(message.chat.id, response, reply_markup=keyboard_main)
-  os.remove("conversation_memory.json")
+  if os.path.exists("conversation_memory.json"):
+    os.remove("conversation_memory.json")
 
 
 @bot.message_handler(content_types=['text'])
