@@ -1,5 +1,5 @@
 import os
-from background import keep_alive
+import background
 import FreeAI
 import telebot
 from telebot import types
@@ -12,15 +12,18 @@ temperature = 0.7  # Set custom temperature (optional)
 max_tokens = 4096  # Set custom max_tokens (optional)
 
 bot = telebot.TeleBot(token)
-keyboard = types.ReplyKeyboardMarkup(True, True)
-keyboard.add('Рандомный анек', 'Своя затравка', 'Помощь')
+keyboard_main = types.ReplyKeyboardMarkup(True, True)
+keyboard_main.add('Рандомный анек', 'Своя затравка', 'Помощь')
+keyboard_voice = types.ReplyKeyboardMarkup(True, True)
+keyboard_voice.add('Да', 'Нет')
+
 
 
 @bot.message_handler(commands=['start'])
 def com_start(message):
   bot.send_message(message.chat.id,
                    "На связи AnekBot, могу рассказать анек на любую тему",
-                   reply_markup=keyboard)
+                   reply_markup=keyboard_main)
 
 
 @bot.message_handler(commands=['help'])
@@ -33,16 +36,26 @@ def com_help(message):
   bot.send_message(
     message.chat.id,
     'Если есть желание использовать свою затравку по типу "кто? где? про что?", то используй кнопку "Своя затравка"',
-    reply_markup=keyboard)
+    reply_markup=keyboard_main)
 
 
 @bot.message_handler(commands=['random'])
 def com_random(message):
   bot.send_message(message.chat.id, 'Ща придумаю')
+  bot.send_chat_action(message.chat.id, 'typing')
   response = FreeAI.generate(prompt1,
                              temperature=temperature,
                              max_tokens=max_tokens)
-  bot.send_message(message.chat.id, response, reply_markup=keyboard)
+  bot.send_message(message.chat.id, 'Озвучить анек?', reply_markup=keyboard_voice)
+  bot.send_message(message.chat.id, response, reply_markup=keyboard_main)
+  os.remove("conversation_memory.json")
+
+def choice()
+
+def write_voice()
+
+def write_text()
+
 
 
 @bot.message_handler(commands=['topic'])
@@ -53,11 +66,13 @@ def com_topic(message):
 
 def com_gen(message):
   bot.send_message(message.chat.id, 'Ща придумаю')
+  bot.send_chat_action(message.chat.id, 'typing')
   pr = prompt2 + str(message)
   response = FreeAI.generate(pr,
                              temperature=temperature,
                              max_tokens=max_tokens)
-  bot.send_message(message.chat.id, response, reply_markup=keyboard)
+  bot.send_message(message.chat.id, response, reply_markup=keyboard_main)
+  os.remove("conversation_memory.json")
 
 
 @bot.message_handler(content_types=['text'])
@@ -69,5 +84,6 @@ def com_text(message):
   elif message.text.lower() == 'помощь':
     com_help(message)
 
-keep_alive()
+
+background.keep_alive()
 bot.polling()
