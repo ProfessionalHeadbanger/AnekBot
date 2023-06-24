@@ -5,6 +5,8 @@ import telebot
 from telebot import types
 import time
 import google_speech
+import schedule
+from multiprocessing.context import Process
 
 token = os.environ['BOT_TOKEN']
 prompt1 = "Напиши любой анекдот "
@@ -14,7 +16,8 @@ max_tokens = 4096  # Set custom max_tokens (optional)
 
 bot = telebot.TeleBot(token)
 keyboard_main = types.ReplyKeyboardMarkup(True, True)
-keyboard_main.add('Рандомный анек', 'Своя затравка', 'Помощь')
+keyboard_main.add('Рандомный анек', 'Своя затравка', 'Помощь',
+                  'Включить рассылку', 'Отключить рассылку')
 keyboard_voice = types.ReplyKeyboardMarkup(True, True)
 keyboard_voice.add('Да', 'Нет')
 
@@ -35,7 +38,17 @@ def com_help(message):
   time.sleep(0.5)
   bot.send_message(
     message.chat.id,
-    'Если есть желание использовать свою затравку по типу "кто? где? про что?", то используй кнопку "Своя затравка"',
+    'Если есть желание использовать свою затравку по типу "кто? где? про что?", то используй кнопку "Своя затравка"'
+  )
+  time.sleep(0.5)
+  bot.send_message(
+    message.chat.id,
+    'Если хочешь, чтобы тебе автоматически приходили анеки утром и вечером, можешь включить рассылку по кнопке "Включить рассылку"'
+  )
+  time.sleep(0.5)
+  bot.send_message(
+    message.chat.id,
+    'Захочешь отключить рассылку - нажимай "Отключить рассылку"',
     reply_markup=keyboard_main)
 
 
@@ -96,6 +109,38 @@ def write_text(message, response):
     os.remove("conversation_memory.json")
 
 
+@bot.message_handler(content_types=['mail'])
+def com_mail(message):
+  flag = False
+  with open('id.txt', 'r+') as f:
+    for line in f:
+      if line == str(message.chat.id) + '\n':
+        flag = True
+
+    if not flag:
+      print(message.chat.id, file=f)
+      bot.send_message(message.chat.id,
+                       'Рассылка включена',
+                       reply_markup=keyboard_main)
+    else:
+      bot.send_message(message.chat.id,
+                       'Рассылка уже включена',
+                       reply_markup=keyboard_main)
+
+
+@bot.message_handler(content_types=['unmail'])
+def com_unmail(message):
+  with open('id.txt', 'r') as f:
+    lines = f.readlines()
+  with open('id.txt', 'w') as f:
+    for line in lines:
+      if line.strip('\n') != str(message.chat.id):
+        f.write(line)
+  bot.send_message(message.chat.id,
+                   'Рассылка отключена',
+                   reply_markup=keyboard_main)
+
+
 @bot.message_handler(content_types=['text'])
 def com_text(message):
   if message.text.lower() == 'рандомный анек':
@@ -104,7 +149,42 @@ def com_text(message):
     com_topic(message)
   elif message.text.lower() == 'помощь':
     com_help(message)
+  elif message.text.lower() == 'включить рассылку':
+    com_mail(message)
+  elif message.text.lower() == 'отключить рассылку':
+    com_unmail(message)
 
 
-background.keep_alive()
-bot.polling()
+def mailing():
+  for userid in open('id.txt', 'r').readlines():
+    response = FreeAI.generate(prompt1,
+                               temperature=temperature,
+                               max_tokens=max_tokens)
+    bot.send_message(userid, response)
+    if os.path.exists("conversation_memory.json"):
+      os.remove("conversation_memory.json")
+
+
+schedule.every().day.at('06:00').do(mailing)
+schedule.every().day.at('18:00').do(mailing)
+
+
+class ScheduleMessage():
+
+  def try_send_schedule():
+    while True:
+      schedule.run_pending()
+      time.sleep(1)
+
+  def start_process():
+    p1 = Process(target=ScheduleMessage.try_send_schedule, args=())
+    p1.start()
+
+
+if __name__ == '__main__':
+  ScheduleMessage.start_process()
+  try:
+    background.keep_alive()
+    bot.polling()
+  except:
+    pass
