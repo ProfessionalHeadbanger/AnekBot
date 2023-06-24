@@ -2,3 +2,5 @@ pyTelegramBotAPI
 telebot
 FreeAI
 google-speech
+schedule
+multiprocessing
